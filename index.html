@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>우리집 스마트 가계부</title>
+    <!-- Chart.js (차트 라이브러리) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- 폰트 적용 (Pretendard) -->
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --primary-light: #a29bfe;
+            --bg: #dfe6e9;
+            --card-bg: #ffffff;
+            --text-main: #2d3436;
+            --text-sub: #636e72;
+            --danger: #ff7675;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Pretendard', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* 레이아웃 컨테이너 */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 350px 1fr; /* 왼쪽 입력창, 오른쪽 리스트 */
+            gap: 20px;
+        }
+
+        /* 모바일 반응형 처리 */
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                padding: 15px;
+            }
+        }
+
+        /* 카드 공통 스타일 */
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+        }
+
+        h2, h3 { margin-top: 0; font-weight: 700; color: var(--text-main); }
+        h3 { font-size: 1.1rem; color: var(--text-sub); margin-bottom: 15px; }
+
+        /* 상단 대시보드 (요약) */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-box {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 16px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+        }
+        .stat-title { font-size: 0.85rem; color: var(--text-sub); margin-bottom: 5px; }
+        .stat-value { font-size: 1.25rem; font-weight: 800; color: var(--primary); }
+
+        /* 입력 폼 스타일 */
+        .form-group { margin-bottom: 16px; }
+        label { display: block; font-size: 0.85rem; color: var(--text-sub); margin-bottom: 8px; font-weight: 600; }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #f1f2f6;
+            border-radius: 10px;
+            font-size: 1rem;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+            font-family: inherit;
+        }
+        input:focus { outline: none; border-color: var(--primary); }
+
+        /* 카테고리 버튼 그리드 */
+        .category-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        .cat-btn {
+            padding: 10px;
+            border: 2px solid #f1f2f6;
+            background: white;
+            border-radius: 10px;
+            color: var(--text-sub);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .cat-btn:hover { background: #f1f2f6; }
+        .cat-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        /* 저장 버튼 */
+        .save-btn {
+            width: 100%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: opacity 0.2s;
+        }
+        .save-btn:hover { opacity: 0.9; }
+
+        /* 리스트 테이블 */
+        .table-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 500px; }
+        th { text-align: left; padding: 12px; color: var(--text-sub); border-bottom: 2px solid #f1f2f6; font-size: 0.9rem; }
+        td { padding: 16px 12px; border-bottom: 1px solid #f1f2f6; font-size: 0.95rem; vertical-align: middle; }
+        
+        .expense-row:last-child td { border-bottom: none; }
+        
+        /* 태그 스타일 */
+        .tag {
+            display: inline-block;
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+        
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #b2bec3;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 5px;
+        }
+        .delete-btn:hover { color: var(--danger); }
+
+        /* 유틸리티 */
+        .text-right { text-align: right; }
+        .chart-container { position: relative; height: 250px; width: 100%; display: flex; justify-content: center; }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- 모바일에서는 맨 위, PC에서는 왼쪽 전체 영역 -->
+        <div class="left-panel">
+            
+            <!-- 1. 요약 대시보드 -->
+            <div class="dashboard-grid">
+                <div class="stat-box">
+                    <div class="stat-title">이번 달 지출</div>
+                    <div class="stat-value" id="total-amount">0원</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-title">지출 건수</div>
+                    <div class="stat-value" id="total-count">0건</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-title">최다 지출</div>
+                    <div class="stat-value" id="top-category">-</div>
+                </div>
+            </div>
+
+            <!-- 2. 입력 폼 -->
+            <div class="card">
+                <h2>✏️ 지출 기록하기</h2>
+                <div class="form-group">
+                    <label>날짜</label>
+                    <input type="date" id="input-date">
+                </div>
+                <div class="form-group">
+                    <label>내용 (가맹점)</label>
+                    <input type="text" id="input-merchant" placeholder="예: 스타벅스, 쿠팡">
+                </div>
+                <div class="form-group">
+                    <label>금액</label>
+                    <input type="number" id="input-amount" placeholder="숫자만 입력">
+                </div>
+                <div class="form-group">
+                    <label>카테고리</label>
+                    <div class="category-grid" id="category-wrapper">
+                        <button class="cat-btn" onclick="setCategory('식비')">🍚 식비</button>
+                        <button class="cat-btn" onclick="setCategory('쇼핑')">🛍️ 쇼핑</button>
+                        <button class="cat-btn" onclick="setCategory('교통')">🚎 교통</button>
+                        <button class="cat-btn" onclick="setCategory('주거')">🏠 주거</button>
+                        <button class="cat-btn" onclick="setCategory('의료')">🏥 의료</button>
+                        <button class="cat-btn" onclick="setCategory('기타')">🎸 기타</button>
+                    </div>
+                </div>
+                <button class="save-btn" onclick="addExpense()">저장하기</button>
+            </div>
+
+            <!-- 3. 차트 영역 -->
+            <div class="card">
+                <h3>📊 카테고리별 분석</h3>
+                <div class="chart-container">
+                    <canvas id="expenseChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 오른쪽 패널: 리스트 -->
+        <div class="right-panel">
+            <div class="card" style="min-height: 600px;">
+                <h3>📜 지출 내역 (최신순)</h3>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th width="20%">날짜</th>
+                                <th width="15%">분류</th>
+                                <th width="35%">내용</th>
+                                <th width="20%" class="text-right">금액</th>
+                                <th width="10%"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="expense-list">
+                            <!-- JS로 데이터가 들어옵니다 -->
+                            <tr>
+                                <td colspan="5" style="text-align:center; padding: 40px; color: #b2bec3;">
+                                    로딩중...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK 및 로직 -->
+    <script type="module">
+        // Firebase 라이브러리 (CDN)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc } 
+        from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+        // 🔴 사용자 설정 (제공해주신 키 적용됨)
+        const firebaseConfig = {
+            apiKey: "AIzaSyCE-XSrGqSApyyEG-KAurUtRc-tVDR8XCI",
+            authDomain: "money-aef17.firebaseapp.com",
+            projectId: "money-aef17", // authDomain 기반으로 설정
+            storageBucket: "money-aef17.appspot.com",
+            messagingSenderId: "", 
+            appId: "" 
+        };
+
+        // 1. Firebase 초기화
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const COLLECTION_NAME = "expenses"; // DB 컬렉션 이름
+
+        // 상태 변수
+        let currentCategory = "";
+        let chartInstance = null;
+
+        // 초기 날짜 설정 (오늘)
+        document.getElementById('input-date').value = new Date().toISOString().substring(0, 10);
+
+        // 2. 카테고리 선택 함수 (전역 노출)
+        window.setCategory = (cat) => {
+            currentCategory = cat;
+            document.querySelectorAll('.cat-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.innerText.includes(cat)) btn.classList.add('active');
+            });
+        }
+
+        // 3. 지출 추가 함수
+        window.addExpense = async () => {
+            const date = document.getElementById('input-date').value;
+            const merchant = document.getElementById('input-merchant').value;
+            const amount = Number(document.getElementById('input-amount').value);
+
+            if(!date || !merchant || !amount || !currentCategory) {
+                alert("모든 항목을 입력해주세요! (카테고리 선택 필수)");
+                return;
+            }
+
+            const btn = document.querySelector('.save-btn');
+            btn.innerText = "저장 중...";
+            btn.disabled = true;
+
+            try {
+                await addDoc(collection(db, COLLECTION_NAME), {
+                    date: date,
+                    merchant: merchant,
+                    amount: amount,
+                    category: currentCategory,
+                    createdAt: new Date() // 정렬용 타임스탬프
+                });
+                
+                // 입력 초기화
+                document.getElementById('input-merchant').value = '';
+                document.getElementById('input-amount').value = '';
+                // 카테고리는 유지하거나 초기화 (여기선 유지)
+                btn.innerText = "저장하기";
+                btn.disabled = false;
+                
+            } catch (error) {
+                console.error("Error:", error);
+                alert("저장 실패! (잠시 후 다시 시도해주세요)");
+                btn.innerText = "저장하기";
+                btn.disabled = false;
+            }
+        }
+
+        // 4. 삭제 함수
+        window.deleteItem = async (id) => {
+            if(confirm("정말 이 내역을 삭제하시겠습니까?")) {
+                try {
+                    await deleteDoc(doc(db, COLLECTION_NAME, id));
+                } catch(e) {
+                    alert("삭제 실패");
+                }
+            }
+        }
+
+        // 5. 실시간 데이터 리스너 (핵심 로직)
+        // 🔥 수정됨: 복합 인덱스 오류 방지를 위해 orderBy 하나만 사용
+        const q = query(collection(db, COLLECTION_NAME), orderBy("date", "desc"));
+        
+        onSnapshot(q, (snapshot) => {
+            const listBody = document.getElementById('expense-list');
+            listBody.innerHTML = ""; // 초기화
+
+            let total = 0;
+            let count = 0;
+            let categoryStats = {};
+            let expenses = [];
+
+            if (snapshot.empty) {
+                listBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:40px;">아직 데이터가 없습니다. 첫 지출을 기록해보세요!</td></tr>`;
+                updateDashboard(0, 0, "-");
+                updateChart({});
+                return;
+            }
+
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                expenses.push({ id: doc.id, ...data }); // 데이터 수집
+            });
+
+            // 💡 클라이언트 사이드 정렬 (같은 날짜면 입력순/최신순 등)
+            // 여기서는 단순 날짜 내림차순을 따릅니다. 필요시 추가 정렬 로직 삽입 가능.
+
+            expenses.forEach((data) => {
+                // 통계 누적
+                total += data.amount;
+                count++;
+                if (categoryStats[data.category]) {
+                    categoryStats[data.category] += data.amount;
+                } else {
+                    categoryStats[data.category] = data.amount;
+                }
+
+                // 리스트 렌더링
+                const tr = document.createElement('tr');
+                tr.className = "expense-row";
+                tr.innerHTML = `
+                    <td>${data.date.substring(5)}</td>
+                    <td><span class="tag" style="background:${getTagColor(data.category)}20; color:${getTagColor(data.category)}">${data.category}</span></td>
+                    <td>${data.merchant}</td>
+                    <td class="text-right"><strong>${data.amount.toLocaleString()}</strong>원</td>
+                    <td class="text-right"><button class="delete-btn" onclick="deleteItem('${data.id}')">&times;</button></td>
+                `;
+                listBody.appendChild(tr);
+            });
+
+            // 최다 지출 카테고리 계산
+            let maxCat = "-";
+            let maxVal = 0;
+            for(const [cat, val] of Object.entries(categoryStats)) {
+                if(val > maxVal) {
+                    maxVal = val;
+                    maxCat = cat;
+                }
+            }
+
+            updateDashboard(total, count, maxCat);
+            updateChart(categoryStats);
+        });
+
+        // UI 업데이트 헬퍼
+        function updateDashboard(total, count, maxCat) {
+            document.getElementById('total-amount').innerText = total.toLocaleString() + "원";
+            document.getElementById('total-count').innerText = count + "건";
+            document.getElementById('top-category').innerText = maxCat;
+        }
+
+        function getTagColor(cat) {
+            switch(cat) {
+                case '식비': return '#fd79a8';
+                case '쇼핑': return '#a29bfe';
+                case '교통': return '#74b9ff';
+                case '주거': return '#55efc4';
+                case '의료': return '#ff7675';
+                default: return '#636e72';
+            }
+        }
+
+        // 차트 업데이트 (Chart.js)
+        function updateChart(stats) {
+            const ctx = document.getElementById('expenseChart').getContext('2d');
+            const labels = Object.keys(stats);
+            const data = Object.values(stats);
+            
+            // 색상 배열 생성
+            const bgColors = labels.map(cat => getTagColor(cat));
+
+            if(chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: bgColors,
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right', labels: { boxWidth: 12, font: { family: 'Pretendard' } } }
+                    },
+                    cutout: '70%' // 도넛 두께
+                }
+            });
+        }
+    </script>
+</body>
+</html>

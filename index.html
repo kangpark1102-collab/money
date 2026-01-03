@@ -28,6 +28,9 @@
             background-color: var(--bg);
             color: var(--text-main);
             -webkit-font-smoothing: antialiased;
+            /* 가로 스크롤 방지 안전장치 */
+            width: 100%;
+            overflow-x: hidden;
         }
 
         /* 전체 레이아웃 */
@@ -38,6 +41,7 @@
             display: grid;
             grid-template-columns: 380px 1fr;
             gap: 25px;
+            box-sizing: border-box; /* 패딩 포함 크기 계산 */
         }
 
         /* 상단 월 선택 */
@@ -175,7 +179,7 @@
         .save-btn:hover { opacity: 0.9; }
 
         /* --------------------------------------------------------
-           테이블 및 헤더 필터 스타일 (핵심 수정 부분)
+           테이블 및 헤더 필터 스타일
         -------------------------------------------------------- */
         .table-container { overflow-x: visible; min-height: 400px; } /* 드롭다운 잘림 방지 */
         table { width: 100%; border-collapse: collapse; min-width: 600px; }
@@ -245,8 +249,9 @@
             .left-panel { order: 1; }
             .right-panel { order: 2; }
             
-            /* 모바일에서 테이블 헤더 숨김 (카드뷰) */
+            /* 모바일에서 테이블 스타일 재설정 (가로스크롤 방지 핵심) */
             table, thead, tbody, th, td, tr { display: block; }
+            table { min-width: auto; width: 100%; } /* min-width 해제 */
             thead { display: none; } /* 헤더 숨김 */
 
             /* 모바일 전용 필터/정렬 버튼 영역 */

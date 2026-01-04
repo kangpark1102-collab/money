@@ -73,22 +73,41 @@
 
         h3 { font-size: 1.1rem; color: var(--text-sub); margin-top: 0; margin-bottom: 20px; font-weight: 700; }
 
-        /* 대시보드 (통계 박스) */
+        /* 대시보드 (통계 박스) - 수정됨 */
         .dashboard-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
+            grid-template-columns: repeat(3, 1fr); /* 3등분 고정 */
+            gap: 10px;
             margin-bottom: 20px;
+            align-items: stretch; /* 높이 동일하게 맞춤 */
         }
         .stat-box {
             background: #fff;
-            padding: 15px;
+            padding: 15px 5px;
             border-radius: 16px;
             text-align: center;
             border: 1px solid var(--border);
+            /* 내용 정렬 및 크기 고정 */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 80px;
+            overflow: hidden; /* 내용 넘침 방지 */
         }
-        .stat-title { font-size: 0.8rem; color: var(--text-sub); margin-bottom: 5px; }
-        .stat-value { font-size: 1.1rem; font-weight: 800; word-break: keep-all; }
+        .stat-title { 
+            font-size: 0.8rem; 
+            color: var(--text-sub); 
+            margin-bottom: 5px; 
+            white-space: nowrap; /* 줄바꿈 방지 */
+        }
+        .stat-value { 
+            font-size: 1.1rem; 
+            font-weight: 800; 
+            word-break: break-all;
+            line-height: 1.2;
+            /* 기본 글자 크기 */
+        }
         
         #total-income { color: var(--income); }
         #total-expense { color: var(--expense); }
@@ -348,6 +367,18 @@
                 padding: 10px;
                 color: #b2bec3;
             }
+
+            /* 모바일 대시보드 폰트 사이즈 조정 */
+            .stat-value {
+                /* 화면 크기에 따라 글자 크기 유동적 조절 */
+                font-size: clamp(0.85rem, 4vw, 1.1rem);
+            }
+            .dashboard-grid {
+                gap: 8px;
+            }
+            .stat-box {
+                padding: 12px 2px;
+            }
         }
         
         @media (min-width: 769px) {
@@ -521,7 +552,7 @@
         // 필터 및 정렬 상태
         let filterState = { category: 'all', card: 'all' };
         let sortState = { field: 'date', order: 'desc' };
-
+        
         // 초기 설정
         const today = new Date();
         const yyyy = today.getFullYear();
@@ -531,9 +562,11 @@
         
         const monthPicker = document.getElementById('month-picker');
         monthPicker.value = `${yyyy}-${mm}`;
-        monthPicker.addEventListener('change', renderData);
-        
-        // --- 추가됨: 금액 입력 시 자동 쉼표(,) 처리 로직 ---
+        monthPicker.addEventListener('change', () => {
+            renderData();
+        });
+
+        // --- 금액 입력 시 자동 쉼표(,) 처리 로직 ---
         const amountInput = document.getElementById('input-amount');
         amountInput.addEventListener('input', function(e) {
             // 입력된 값에서 숫자만 추출
@@ -610,7 +643,7 @@
             const date = document.getElementById('input-date').value;
             const merchant = document.getElementById('input-merchant').value;
             
-            // --- 수정됨: 금액 저장 시 콤마 제거 후 숫자로 변환 ---
+            // --- 금액 저장 시 콤마 제거 후 숫자로 변환 ---
             const rawAmount = document.getElementById('input-amount').value.replace(/,/g, '');
             const amount = Number(rawAmount);
             // ---------------------------------------------------
@@ -665,7 +698,7 @@
             }
         }
 
-        // 헤더 필터/정렬 함수들 (기존 유지)
+        // 헤더 필터/정렬 함수들
         window.toggleSort = (field) => {
             if(sortState.field === field) {
                 sortState.order = sortState.order === 'desc' ? 'asc' : 'desc';
@@ -688,7 +721,6 @@
             allExpenses = [];
             snapshot.forEach((doc) => {
                 const data = doc.data();
-                // 기존 데이터(type 필드 없는 경우)는 지출로 간주
                 if(!data.type) data.type = 'expense';
                 if(!data.card) data.card = "기타";
                 allExpenses.push({ id: doc.id, ...data });
@@ -701,7 +733,7 @@
             const listBody = document.getElementById('expense-list');
             listBody.innerHTML = "";
 
-            // 1. 월 필터
+            // 1. 월 필터 (기본값)
             let filteredData = allExpenses.filter(item => item.date.startsWith(selectedMonth));
 
             // 2. 정렬
@@ -727,29 +759,24 @@
             // 통계 계산
             let totalIncome = 0;
             let totalExpense = 0;
-            let categoryStats = {}; // 지출만 카테고리 분석
+            let categoryStats = {}; 
 
             if (filteredData.length === 0) {
                 listBody.innerHTML = `<div style="padding:40px; text-align:center; color:#b2bec3; grid-column:1/-1;">기록이 없습니다.</div>`;
             }
 
             filteredData.forEach((data) => {
-                // 통계 합산
                 if(data.type === 'income') {
                     totalIncome += data.amount;
                 } else {
                     totalExpense += data.amount;
-                    // 차트는 지출만
                     if (categoryStats[data.category]) categoryStats[data.category] += data.amount;
                     else categoryStats[data.category] = data.amount;
                 }
 
                 const formattedDate = data.date.replace(/-/g, '/');
-                
-                // 수입인지 확인하여 클래스 추가
                 const rowClass = data.type === 'income' ? 'expense-row income-row' : 'expense-row';
                 
-                // 수입일 때 금액 앞에 + 표시 등은 선택사항 (여기선 색상으로만 구분)
                 const tr = document.createElement('tr');
                 tr.className = rowClass;
                 

@@ -369,11 +369,12 @@
             /* 지출 금액 색상 */
             .expense-row:not(.income-row) td:nth-of-type(5) { color: var(--expense); }
 
-            /* 삭제/수정 버튼 영역 개선 */
+            /* 삭제/수정 버튼 영역 개선 - 위치 변경됨 (오른쪽 -> 왼쪽 아래) */
             td:nth-of-type(6) { 
                 position: absolute; 
                 bottom: 12px; 
-                right: 12px; 
+                left: 16px; /* 왼쪽으로 이동 */
+                right: auto; 
                 order: 6; 
                 padding: 0;
                 display: flex;

@@ -73,7 +73,7 @@
 
         h3 { font-size: 1.1rem; color: var(--text-sub); margin-top: 0; margin-bottom: 20px; font-weight: 700; }
 
-        /* 대시보드 (통계 박스) - 수정됨 */
+        /* 대시보드 (통계 박스) */
         .dashboard-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr); /* 3등분 고정 */
@@ -278,6 +278,21 @@
         }
         .delete-btn:hover { color: var(--danger); }
 
+        /* Edit 버튼 스타일 */
+        .edit-btn {
+            background: none;
+            border: none;
+            color: var(--primary);
+            cursor: pointer;
+            font-size: 0.8rem; /* 작은 글씨 */
+            font-weight: 700;
+            padding: 8px;
+            margin-right: 2px;
+        }
+        .edit-btn:hover {
+            text-decoration: underline;
+        }
+
         /* 필터 드롭다운 */
         .filter-dropdown {
             display: none;
@@ -354,18 +369,25 @@
             /* 지출 금액 색상 */
             .expense-row:not(.income-row) td:nth-of-type(5) { color: var(--expense); }
 
-            /* 삭제 버튼 개선: 위치와 크기 조정 */
+            /* 삭제/수정 버튼 영역 개선 */
             td:nth-of-type(6) { 
                 position: absolute; 
                 bottom: 12px; 
                 right: 12px; 
                 order: 6; 
                 padding: 0;
+                display: flex;
+                align-items: center;
+                gap: 5px; /* 버튼 사이 간격 */
             }
             .delete-btn {
                 font-size: 1.5rem; /* 터치하기 좋게 키움 */
-                padding: 10px;
+                padding: 10px 5px; /* 좌우 패딩 축소 */
                 color: #b2bec3;
+            }
+            .edit-btn {
+                font-size: 0.9rem;
+                padding: 10px 8px;
             }
 
             /* 모바일 대시보드 폰트 사이즈 조정 */
@@ -527,7 +549,7 @@
     <!-- Firebase SDK 및 로직 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc } 
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, deleteDoc, updateDoc, doc } 
         from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -548,6 +570,7 @@
         let currentCategory = "";
         let chartInstance = null;
         let allExpenses = []; 
+        let editingId = null; // 수정 중인 문서 ID
 
         // 필터 및 정렬 상태
         let filterState = { category: 'all', card: 'all' };
@@ -587,6 +610,10 @@
         window.toggleMode = (mode) => {
             currentMode = mode;
             currentCategory = ""; // 카테고리 초기화
+            
+            // 모드 전환 시 수정 상태 초기화 (사용자가 수동으로 탭을 바꿨을 때)
+            editingId = null;
+            document.querySelector('.save-btn').innerText = "기록 저장하기";
             
             const card = document.getElementById('record-card');
             const btns = document.querySelectorAll('.tab-btn');
@@ -638,7 +665,7 @@
             });
         }
 
-        // 통합 저장 함수
+        // 통합 저장 함수 (추가/수정)
         window.addTransaction = async () => {
             const date = document.getElementById('input-date').value;
             const merchant = document.getElementById('input-merchant').value;
@@ -662,34 +689,82 @@
             }
 
             const btn = document.querySelector('.save-btn');
+            const originalBtnText = btn.innerText;
             btn.innerText = "저장 중...";
             btn.disabled = true;
 
             try {
-                await addDoc(collection(db, COLLECTION_NAME), {
-                    type: currentMode, // 'income' or 'expense'
-                    date: date,
-                    merchant: merchant,
-                    amount: amount,
-                    category: currentCategory,
-                    card: method, // DB 필드명은 호환성을 위해 card 유지 (실제론 method 역할)
-                    createdAt: new Date().toISOString()
-                });
+                if (editingId) {
+                    // 수정 모드
+                    await updateDoc(doc(db, COLLECTION_NAME, editingId), {
+                        type: currentMode,
+                        date: date,
+                        merchant: merchant,
+                        amount: amount,
+                        category: currentCategory,
+                        card: method
+                    });
+                    alert("수정되었습니다.");
+                    editingId = null; // 수정 모드 해제
+                    btn.innerText = "기록 저장하기"; // 버튼 텍스트 복구
+                } else {
+                    // 신규 추가
+                    await addDoc(collection(db, COLLECTION_NAME), {
+                        type: currentMode,
+                        date: date,
+                        merchant: merchant,
+                        amount: amount,
+                        category: currentCategory,
+                        card: method, 
+                        createdAt: new Date().toISOString()
+                    });
+                }
                 
                 // 입력창 초기화
                 document.getElementById('input-merchant').value = '';
                 document.getElementById('input-amount').value = '';
                 if(currentMode === 'income') document.getElementById('input-source').value = '';
                 
-                btn.innerText = "기록 저장하기";
                 btn.disabled = false;
-                
+                if(!editingId) btn.innerText = "기록 저장하기";
+
             } catch (error) {
                 console.error("Error:", error);
                 alert("저장 실패");
-                btn.innerText = "기록 저장하기";
+                btn.innerText = originalBtnText;
                 btn.disabled = false;
             }
+        }
+
+        // 수정 버튼 클릭 시 호출
+        window.editItem = (id) => {
+            const item = allExpenses.find(i => i.id === id);
+            if (!item) return;
+
+            // 1. 모드 설정 (이때 editingId가 null로 초기화되므로 순서 중요)
+            toggleMode(item.type);
+
+            // 2. 값 채워넣기
+            document.getElementById('input-date').value = item.date;
+            document.getElementById('input-merchant').value = item.merchant;
+            document.getElementById('input-amount').value = item.amount.toLocaleString();
+            
+            // 3. 카테고리 설정
+            setCategory(item.category);
+
+            // 4. 결제수단/입금처 설정
+            if (item.type === 'expense') {
+                document.getElementById('input-card').value = item.card;
+            } else {
+                document.getElementById('input-source').value = item.card;
+            }
+
+            // 5. 수정 모드 활성화
+            editingId = id;
+            document.querySelector('.save-btn').innerText = "수정 완료";
+            
+            // 6. 폼이 있는 상단으로 스크롤
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         window.deleteItem = async (id) => {
@@ -780,13 +855,17 @@
                 const tr = document.createElement('tr');
                 tr.className = rowClass;
                 
+                // Edit 버튼 추가
                 tr.innerHTML = `
                     <td>${formattedDate}</td>
                     <td><span class="tag" style="background:${getCategoryColor(data.category)}20; color:${getCategoryColor(data.category)}">${data.category}</span></td>
                     <td>${data.merchant}</td>
                     <td>${data.card}</td>
                     <td class="text-right"><strong>${data.amount.toLocaleString()}</strong>원</td>
-                    <td class="text-right"><button class="delete-btn" onclick="deleteItem('${data.id}')">&times;</button></td>
+                    <td class="text-right">
+                        <button class="edit-btn" onclick="editItem('${data.id}')">Edit</button>
+                        <button class="delete-btn" onclick="deleteItem('${data.id}')">&times;</button>
+                    </td>
                 `;
                 listBody.appendChild(tr);
             });

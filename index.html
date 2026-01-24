@@ -6,6 +6,8 @@
     <title>우리집 스마트 가계부</title>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS (Excel Library) -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <!-- 폰트 (Pretendard) -->
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     
@@ -45,22 +47,53 @@
             box-sizing: border-box;
         }
 
-        /* 상단 월 선택 */
+        /* 상단 헤더 영역 */
         .header-bar {
             grid-column: 1 / -1;
             margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fff;
+            padding: 15px;
+            border-radius: 16px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.03);
+            flex-wrap: wrap;
+            gap: 10px;
         }
-        .month-selector {
-            font-size: 1.8rem;
-            font-weight: 800;
-            color: var(--text-main);
-            border: none;
-            background: transparent;
-            cursor: pointer;
+
+        .date-filter-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .date-filter-input {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
             font-family: 'Pretendard', sans-serif;
-            outline: none;
-            padding: 0;
+            font-size: 1rem;
+            color: var(--text-main);
+            font-weight: 600;
         }
+
+        /* 데이터 관리 버튼 (엑셀) */
+        .data-mgr-btn {
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.9rem;
+            transition: opacity 0.2s;
+        }
+        .data-mgr-btn:hover { opacity: 0.9; }
 
         /* 카드 박스 스타일 */
         .card {
@@ -87,26 +120,24 @@
             border-radius: 16px;
             text-align: center;
             border: 1px solid var(--border);
-            /* 내용 정렬 및 크기 고정 */
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             min-height: 80px;
-            overflow: hidden; /* 내용 넘침 방지 */
+            overflow: hidden;
         }
         .stat-title { 
             font-size: 0.8rem; 
             color: var(--text-sub); 
             margin-bottom: 5px; 
-            white-space: nowrap; /* 줄바꿈 방지 */
+            white-space: nowrap; 
         }
         .stat-value { 
             font-size: 1.1rem; 
             font-weight: 800; 
             word-break: break-all;
             line-height: 1.2;
-            /* 기본 글자 크기 */
         }
         
         #total-income { color: var(--income); }
@@ -209,9 +240,7 @@
             border-color: transparent;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
         }
-        /* 지출용 활성 스타일 */
         .expense-mode .cat-btn.active { background: var(--expense); }
-        /* 수입용 활성 스타일 */
         .income-mode .cat-btn.active { background: var(--income); }
 
         /* 저장 버튼 */
@@ -256,9 +285,8 @@
             color: #b2bec3;
         }
         
-        /* 수입/지출 행 스타일 */
         .expense-row.income-row {
-            background-color: rgba(0, 184, 148, 0.08); /* 연한 녹색 */
+            background-color: rgba(0, 184, 148, 0.08);
         }
         .expense-row.income-row:hover {
             background-color: rgba(0, 184, 148, 0.15);
@@ -274,53 +302,48 @@
             color: #b2bec3; 
             cursor: pointer; 
             font-size: 1.2rem;
-            padding: 8px; /* 터치 영역 확대 */
+            padding: 8px;
         }
         .delete-btn:hover { color: var(--danger); }
 
-        /* Edit 버튼 스타일 */
         .edit-btn {
             background: none;
             border: none;
             color: var(--primary);
             cursor: pointer;
-            font-size: 0.8rem; /* 작은 글씨 */
+            font-size: 0.8rem;
             font-weight: 700;
             padding: 8px;
             margin-right: 2px;
         }
-        .edit-btn:hover {
-            text-decoration: underline;
-        }
-
-        /* 필터 드롭다운 */
-        .filter-dropdown {
-            display: none;
-            position: absolute;
-            top: 100%;
-            left: 0;
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-            z-index: 100;
-            min-width: 120px;
-            padding: 8px 0;
-        }
-        .filter-dropdown.show { display: block; }
-        .filter-item { padding: 10px 16px; font-size: 0.9rem; cursor: pointer; }
-        .filter-item:hover { background: var(--bg); }
-        .filter-item.selected { font-weight: bold; color: var(--primary); background: #f0f0ff; }
+        .edit-btn:hover { text-decoration: underline; }
 
         /* 모바일 반응형 */
         @media (max-width: 768px) {
             .container { grid-template-columns: 1fr; padding: 15px; gap: 15px; }
-            .header-bar { margin-bottom: 5px; }
+            .header-bar { 
+                flex-direction: column; 
+                align-items: stretch; 
+                padding: 12px;
+            }
+            .date-filter-group {
+                justify-content: space-between;
+                margin-bottom: 10px;
+            }
+            .date-filter-input {
+                width: 45%;
+                font-size: 0.9rem;
+            }
+            .data-mgr-btn {
+                justify-content: center;
+                width: 100%;
+            }
+
             .left-panel { order: 1; }
             .right-panel { order: 2; }
             
             table, thead, tbody, th, td, tr { display: block; }
-            table { width: 100%; min-width: 0; } /* min-width: 600px 해제 */
+            table { width: 100%; min-width: 0; }
             thead { display: none; }
 
             .mobile-filter-bar {
@@ -364,71 +387,89 @@
                 font-size: 1.25rem; font-weight: 800; color: var(--text-main); 
                 display: block; text-align: right; margin-top: 5px; order: 5;
             }
-            /* 수입 금액 색상 */
             .income-row td:nth-of-type(5) { color: var(--income); }
-            /* 지출 금액 색상 */
             .expense-row:not(.income-row) td:nth-of-type(5) { color: var(--expense); }
 
-            /* 삭제/수정 버튼 영역 개선 - 위치 변경됨 (오른쪽 -> 왼쪽 아래) */
             td:nth-of-type(6) { 
-                position: absolute; 
-                bottom: 12px; 
-                left: 16px; /* 왼쪽으로 이동 */
-                right: auto; 
-                order: 6; 
-                padding: 0;
-                display: flex;
-                align-items: center;
-                gap: 5px; /* 버튼 사이 간격 */
+                position: absolute; bottom: 12px; left: 16px; right: auto; order: 6; padding: 0;
+                display: flex; align-items: center; gap: 5px; 
             }
-            .delete-btn {
-                font-size: 1.5rem; /* 터치하기 좋게 키움 */
-                padding: 10px 5px; /* 좌우 패딩 축소 */
-                color: #b2bec3;
-            }
-            .edit-btn {
-                font-size: 0.9rem;
-                padding: 10px 8px;
-            }
+            .delete-btn { font-size: 1.5rem; padding: 10px 5px; color: #b2bec3; }
+            .edit-btn { font-size: 0.9rem; padding: 10px 8px; }
 
-            /* 모바일 대시보드 폰트 사이즈 조정 */
-            .stat-value {
-                /* 화면 크기에 따라 글자 크기 유동적 조절 */
-                font-size: clamp(0.85rem, 4vw, 1.1rem);
-            }
-            .dashboard-grid {
-                gap: 8px;
-            }
-            .stat-box {
-                padding: 12px 2px;
-            }
+            .stat-value { font-size: clamp(0.85rem, 4vw, 1.1rem); }
+            .dashboard-grid { gap: 8px; }
+            .stat-box { padding: 12px 2px; }
         }
         
         @media (min-width: 769px) {
             .mobile-filter-bar { display: none; }
         }
 
-        /* 요소 숨김용 클래스 */
         .hidden { display: none !important; }
+
+        /* --- 모달 스타일 --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            position: relative;
+        }
+        .modal-header {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
+        }
+        .modal-title { font-size: 1.25rem; font-weight: 800; }
+        .close-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #b2bec3; }
+        
+        .modal-section { margin-bottom: 25px; border-bottom: 1px solid #f1f2f6; padding-bottom: 20px; }
+        .modal-section:last-child { border-bottom: none; padding-bottom: 0; }
+        .modal-label { font-size: 0.9rem; font-weight: 700; color: var(--text-main); margin-bottom: 10px; display: block; }
+        
+        .action-btn {
+            width: 100%; padding: 12px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; font-family: inherit; margin-bottom: 10px;
+        }
+        .btn-excel { background: #27ae60; color: white; }
     </style>
 </head>
 <body>
 
     <div class="container">
         
+        <!-- 헤더 영역 (기간 선택 통합) -->
         <div class="header-bar">
-            <input type="month" id="month-picker" class="month-selector">
+            <div class="date-filter-group">
+                <input type="date" id="filter-start" class="date-filter-input" title="시작일">
+                <span style="font-weight:bold; color:#b2bec3;">~</span>
+                <input type="date" id="filter-end" class="date-filter-input" title="종료일">
+            </div>
+            
+            <!-- 엑셀 데이터 관리 버튼 -->
+            <button class="data-mgr-btn" onclick="openDataModal()">
+                <span>📊 엑셀 관리</span>
+            </button>
         </div>
 
         <div class="left-panel">
-            <!-- 대시보드 (수정됨: 수입/지출/잔액) -->
+            <!-- 대시보드 -->
             <div class="dashboard-grid">
                 <div class="stat-box">
-                    <div class="stat-title">총 수입</div>
+                    <div class="stat-title">기간 수입</div>
                     <div class="stat-value" id="total-income">0원</div>
                 </div>
                 <div class="stat-box">
-                    <div class="stat-title">총 지출</div>
+                    <div class="stat-title">기간 지출</div>
                     <div class="stat-value" id="total-expense">0원</div>
                 </div>
                 <div class="stat-box">
@@ -460,7 +501,6 @@
                 <div class="row-group">
                     <div class="col form-group">
                         <label>금액</label>
-                        <!-- 수정 1: type="number" 대신 text 사용, inputmode="numeric" 추가 -->
                         <input type="text" id="input-amount" class="input-box" placeholder="0" inputmode="numeric">
                     </div>
                     <div class="col form-group">
@@ -499,7 +539,6 @@
                     <div class="category-grid hidden" id="income-cats">
                         <button class="cat-btn" onclick="setCategory('월급')">💰 월급</button>
                         <button class="cat-btn" onclick="setCategory('투자')">📈 투자</button>
-                        <!-- 수정 2: 폭죽(🎉) 대신 편지봉투(✉️)로 변경 -->
                         <button class="cat-btn" onclick="setCategory('경조사')">✉️ 경조사</button>
                         <button class="cat-btn" onclick="setCategory('기타')">🎸 기타</button>
                     </div>
@@ -547,6 +586,26 @@
         </div>
     </div>
 
+    <!-- 데이터 관리 모달 -->
+    <div id="dataModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">엑셀 데이터 센터</div>
+                <button class="close-btn" onclick="closeDataModal()">&times;</button>
+            </div>
+            
+            <!-- 1. 엑셀 다운로드 (유일한 기능) -->
+            <div class="modal-section">
+                <label class="modal-label">📥 현재 조회 목록 다운로드</label>
+                <p style="font-size:0.85rem; color:#636e72; margin-bottom:15px;">
+                    현재 메인 화면에서 필터링된 기간의 내역을 엑셀로 저장합니다.
+                </p>
+                <button class="action-btn btn-excel" onclick="downloadExcel()">엑셀 다운로드 (현재 필터)</button>
+            </div>
+            <!-- 업로드 섹션 제거됨 -->
+        </div>
+    </div>
+
     <!-- Firebase SDK 및 로직 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
@@ -567,52 +626,97 @@
         const COLLECTION_NAME = "expenses";
 
         // 상태 변수
-        let currentMode = "expense"; // 'expense' or 'income'
+        let currentMode = "expense";
         let currentCategory = "";
         let chartInstance = null;
         let allExpenses = []; 
-        let editingId = null; // 수정 중인 문서 ID
+        let editingId = null; 
 
         // 필터 및 정렬 상태
-        let filterState = { category: 'all', card: 'all' };
         let sortState = { field: 'date', order: 'desc' };
         
-        // 초기 설정
+        // 초기 설정 (날짜)
         const today = new Date();
         const yyyy = today.getFullYear();
         const mm = String(today.getMonth() + 1).padStart(2, '0');
         const dd = String(today.getDate()).padStart(2, '0');
-        document.getElementById('input-date').value = `${yyyy}-${mm}-${dd}`;
+        const todayStr = `${yyyy}-${mm}-${dd}`;
+        const firstDayStr = `${yyyy}-${mm}-01`;
         
-        const monthPicker = document.getElementById('month-picker');
-        monthPicker.value = `${yyyy}-${mm}`;
-        monthPicker.addEventListener('change', () => {
-            renderData();
-        });
+        // 입력폼 날짜 초기화
+        document.getElementById('input-date').value = todayStr;
+        
+        // 1. 기간 필터 초기화 (헤더) -> 메인 리스트 제어용
+        document.getElementById('filter-start').value = firstDayStr;
+        document.getElementById('filter-end').value = todayStr;
+
+        // 날짜 변경 이벤트 리스너
+        document.getElementById('filter-start').addEventListener('change', renderData);
+        document.getElementById('filter-end').addEventListener('change', renderData);
 
         // --- 금액 입력 시 자동 쉼표(,) 처리 로직 ---
         const amountInput = document.getElementById('input-amount');
         amountInput.addEventListener('input', function(e) {
-            // 입력된 값에서 숫자만 추출
             let value = e.target.value.replace(/[^0-9]/g, '');
             if(value) {
-                // 숫자를 천 단위 콤마 포맷으로 변환하여 다시 입력창에 표시
                 e.target.value = Number(value).toLocaleString();
             } else {
                 e.target.value = '';
             }
         });
-        // ----------------------------------------------------
 
         // 전역 함수 등록
         window.renderData = renderData;
+        window.openDataModal = () => document.getElementById('dataModal').classList.remove('hidden');
+        window.closeDataModal = () => document.getElementById('dataModal').classList.add('hidden');
         
-        // 모드 전환 (지출 <-> 수입)
+
+        // ============================================
+        // 2. 엑셀 다운로드 로직 (현재 필터링된 데이터 기준)
+        // ============================================
+        window.downloadExcel = () => {
+            if (typeof XLSX === 'undefined') {
+                alert("엑셀 라이브러리를 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
+                return;
+            }
+
+            // renderData에서 사용된 필터 날짜 가져오기
+            const start = document.getElementById('filter-start').value;
+            const end = document.getElementById('filter-end').value;
+
+            let filtered = allExpenses.filter(item => item.date >= start && item.date <= end);
+            filtered.sort((a, b) => a.date > b.date ? 1 : -1);
+
+            if(filtered.length === 0) {
+                alert("다운로드할 데이터가 없습니다.");
+                return;
+            }
+
+            const excelData = filtered.map(item => ({
+                "날짜": item.date,
+                "카테고리": item.category,
+                "내용": item.merchant,
+                "결제/출처": item.card,
+                "금액": item.amount,
+                "구분": item.type === 'income' ? '수입' : '지출'
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(excelData);
+            ws['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 8 }];
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "가계부 내역");
+            
+            const fileName = `가계부_${start}_${end}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+        }
+
+        // 엑셀 업로드 로직 삭제됨 (요청 반영)
+
+
+        // 모드 전환
         window.toggleMode = (mode) => {
             currentMode = mode;
-            currentCategory = ""; // 카테고리 초기화
-            
-            // 모드 전환 시 수정 상태 초기화 (사용자가 수동으로 탭을 바꿨을 때)
+            currentCategory = "";
             editingId = null;
             document.querySelector('.save-btn').innerText = "기록 저장하기";
             
@@ -620,25 +724,21 @@
             const btns = document.querySelectorAll('.tab-btn');
             const expenseCats = document.getElementById('expense-cats');
             const incomeCats = document.getElementById('income-cats');
-            const inputCard = document.getElementById('input-card'); // 드롭다운
-            const inputSource = document.getElementById('input-source'); // 텍스트창
+            const inputCard = document.getElementById('input-card'); 
+            const inputSource = document.getElementById('input-source'); 
             const methodLabel = document.getElementById('method-label');
             const title = document.getElementById('form-title');
 
-            // 버튼 스타일
             btns.forEach(btn => btn.classList.remove('active'));
             document.querySelector(`.tab-btn.${mode}`).classList.add('active');
 
-            // 내용물 토글
             if(mode === 'expense') {
                 card.classList.remove('income-mode');
                 card.classList.add('expense-mode');
                 title.innerText = "✏️ 지출 기록하기";
                 methodLabel.innerText = "결제 수단";
-                
                 inputCard.classList.remove('hidden');
                 inputSource.classList.add('hidden');
-                
                 expenseCats.classList.remove('hidden');
                 incomeCats.classList.add('hidden');
             } else {
@@ -646,15 +746,11 @@
                 card.classList.add('income-mode');
                 title.innerText = "💰 수입 기록하기";
                 methodLabel.innerText = "입금처";
-                
                 inputCard.classList.add('hidden');
                 inputSource.classList.remove('hidden');
-                
                 expenseCats.classList.add('hidden');
                 incomeCats.classList.remove('hidden');
             }
-
-            // 카테고리 선택 초기화
             document.querySelectorAll('.cat-btn').forEach(btn => btn.classList.remove('active'));
         }
 
@@ -666,17 +762,13 @@
             });
         }
 
-        // 통합 저장 함수 (추가/수정)
+        // 통합 저장 함수
         window.addTransaction = async () => {
             const date = document.getElementById('input-date').value;
             const merchant = document.getElementById('input-merchant').value;
-            
-            // --- 금액 저장 시 콤마 제거 후 숫자로 변환 ---
             const rawAmount = document.getElementById('input-amount').value.replace(/,/g, '');
             const amount = Number(rawAmount);
-            // ---------------------------------------------------
             
-            // 모드에 따라 결제수단/입금처 값 가져오기
             let method = "";
             if(currentMode === 'expense') {
                 method = document.getElementById('input-card').value;
@@ -696,7 +788,6 @@
 
             try {
                 if (editingId) {
-                    // 수정 모드
                     await updateDoc(doc(db, COLLECTION_NAME, editingId), {
                         type: currentMode,
                         date: date,
@@ -706,10 +797,9 @@
                         card: method
                     });
                     alert("수정되었습니다.");
-                    editingId = null; // 수정 모드 해제
-                    btn.innerText = "기록 저장하기"; // 버튼 텍스트 복구
+                    editingId = null;
+                    btn.innerText = "기록 저장하기";
                 } else {
-                    // 신규 추가
                     await addDoc(collection(db, COLLECTION_NAME), {
                         type: currentMode,
                         date: date,
@@ -721,7 +811,6 @@
                     });
                 }
                 
-                // 입력창 초기화
                 document.getElementById('input-merchant').value = '';
                 document.getElementById('input-amount').value = '';
                 if(currentMode === 'income') document.getElementById('input-source').value = '';
@@ -737,34 +826,21 @@
             }
         }
 
-        // 수정 버튼 클릭 시 호출
         window.editItem = (id) => {
             const item = allExpenses.find(i => i.id === id);
             if (!item) return;
-
-            // 1. 모드 설정 (이때 editingId가 null로 초기화되므로 순서 중요)
             toggleMode(item.type);
-
-            // 2. 값 채워넣기
             document.getElementById('input-date').value = item.date;
             document.getElementById('input-merchant').value = item.merchant;
             document.getElementById('input-amount').value = item.amount.toLocaleString();
-            
-            // 3. 카테고리 설정
             setCategory(item.category);
-
-            // 4. 결제수단/입금처 설정
             if (item.type === 'expense') {
                 document.getElementById('input-card').value = item.card;
             } else {
                 document.getElementById('input-source').value = item.card;
             }
-
-            // 5. 수정 모드 활성화
             editingId = id;
             document.querySelector('.save-btn').innerText = "수정 완료";
-            
-            // 6. 폼이 있는 상단으로 스크롤
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -774,7 +850,6 @@
             }
         }
 
-        // 헤더 필터/정렬 함수들
         window.toggleSort = (field) => {
             if(sortState.field === field) {
                 sortState.order = sortState.order === 'desc' ? 'asc' : 'desc';
@@ -786,7 +861,9 @@
         };
 
         window.resetFilters = () => {
-            filterState = { category: 'all', card: 'all' };
+            // 필터 초기화: 날짜는 이번달 1일~오늘로 리셋
+            document.getElementById('filter-start').value = firstDayStr;
+            document.getElementById('filter-end').value = todayStr;
             sortState = { field: 'date', order: 'desc' };
             renderData();
         }
@@ -805,12 +882,17 @@
         });
 
         function renderData() {
-            const selectedMonth = monthPicker.value;
+            // 헤더의 날짜 필터 값 가져오기
+            const startDate = document.getElementById('filter-start').value;
+            const endDate = document.getElementById('filter-end').value;
+            
             const listBody = document.getElementById('expense-list');
             listBody.innerHTML = "";
 
-            // 1. 월 필터 (기본값)
-            let filteredData = allExpenses.filter(item => item.date.startsWith(selectedMonth));
+            // 1. 기간 필터링 적용
+            let filteredData = allExpenses.filter(item => {
+                return item.date >= startDate && item.date <= endDate;
+            });
 
             // 2. 정렬
             filteredData.sort((a, b) => {
@@ -838,7 +920,7 @@
             let categoryStats = {}; 
 
             if (filteredData.length === 0) {
-                listBody.innerHTML = `<div style="padding:40px; text-align:center; color:#b2bec3; grid-column:1/-1;">기록이 없습니다.</div>`;
+                listBody.innerHTML = `<div style="padding:40px; text-align:center; color:#b2bec3; grid-column:1/-1;">해당 기간에 기록이 없습니다.</div>`;
             }
 
             filteredData.forEach((data) => {
@@ -856,7 +938,6 @@
                 const tr = document.createElement('tr');
                 tr.className = rowClass;
                 
-                // Edit 버튼 추가
                 tr.innerHTML = `
                     <td>${formattedDate}</td>
                     <td><span class="tag" style="background:${getCategoryColor(data.category)}20; color:${getCategoryColor(data.category)}">${data.category}</span></td>
@@ -871,7 +952,7 @@
                 listBody.appendChild(tr);
             });
 
-            // 대시보드 업데이트
+            // 대시보드 업데이트 (선택된 기간의 통계로 변경됨)
             document.getElementById('total-income').innerText = totalIncome.toLocaleString() + "원";
             document.getElementById('total-expense').innerText = totalExpense.toLocaleString() + "원";
             document.getElementById('balance').innerText = (totalIncome - totalExpense).toLocaleString() + "원";
@@ -927,7 +1008,6 @@
             });
         }
         
-        // 초기 실행 시 모드 설정 (UI 초기화)
         toggleMode('expense');
     </script>
 </body>
